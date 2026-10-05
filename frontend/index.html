@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Microservices Demo</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { font-size: 1.6rem; }
+  section { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+  h2 { font-size: 1.1rem; margin-top: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eee; }
+  form { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  input { padding: 6px; border: 1px solid #ccc; border-radius: 4px; }
+  button { padding: 6px 14px; border: 0; border-radius: 4px; background: #2563eb; color: white; cursor: pointer; }
+  button:hover { background: #1d4ed8; }
+  .status { font-size: 0.8rem; color: #666; }
+  .error { color: #c0392b; }
+</style>
+</head>
+<body>
+  <h1>Microservices Demo — Users / Products / Orders</h1>
+  <p class="status">All requests go through Traefik at <code>/api/*</code>.</p>
+
+  <section>
+    <h2>Users</h2>
+    <table id="users-table"><thead><tr><th>ID</th><th>Name</th><th>Email</th></tr></thead><tbody></tbody></table>
+    <form id="user-form">
+      <input name="name" placeholder="Name" required />
+      <input name="email" type="email" placeholder="Email" required />
+      <button type="submit">Add user</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Products</h2>
+    <table id="products-table"><thead><tr><th>ID</th><th>Name</th><th>Price</th><th>Stock</th></tr></thead><tbody></tbody></table>
+    <form id="product-form">
+      <input name="name" placeholder="Name" required />
+      <input name="price" type="number" step="0.01" placeholder="Price" required />
+      <input name="stock" type="number" placeholder="Stock" required />
+      <button type="submit">Add product</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Orders</h2>
+    <table id="orders-table"><thead><tr><th>ID</th><th>User</th><th>Product</th><th>Qty</th><th>Total</th><th>Status</th></tr></thead><tbody></tbody></table>
+    <form id="order-form">
+      <input name="user_id" type="number" placeholder="User ID" required />
+      <input name="product_id" type="number" placeholder="Product ID" required />
+      <input name="quantity" type="number" placeholder="Quantity" value="1" required />
+      <button type="submit">Place order</button>
+    </form>
+    <p id="order-error" class="error"></p>
+  </section>
+
+<script>
+async function loadUsers() {
+  const res = await fetch('/api/users/');
+  const rows = await res.json();
+  document.querySelector('#users-table tbody').innerHTML = rows
+    .map(u => `<tr><td>${u.id}</td><td>${u.name}</td><td>${u.email}</td></tr>`).join('');
+}
+
+async function loadProducts() {
+  const res = await fetch('/api/products/');
+  const rows = await res.json();
+  document.querySelector('#products-table tbody').innerHTML = rows
+    .map(p => `<tr><td>${p.id}</td><td>${p.name}</td><td>$${p.price}</td><td>${p.stock}</td></tr>`).join('');
+}
+
+async function loadOrders() {
+  const res = await fetch('/api/orders/');
+  const data = await res.json();
+  document.querySelector('#orders-table tbody').innerHTML = (data.orders || [])
+    .map(o => `<tr><td>${o.id}</td><td>${o.user_id}</td><td>${o.product_id}</td><td>${o.quantity}</td><td>$${o.total_price}</td><td>${o.status}</td></tr>`).join('');
+}
+
+document.getElementById('user-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  await fetch('/api/users/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.fromEntries(fd)),
+  });
+  e.target.reset();
+  loadUsers();
+});
+
+document.getElementById('product-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  await fetch('/api/products/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.fromEntries(fd)),
+  });
+  e.target.reset();
+  loadProducts();
+});
+
+document.getElementById('order-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  document.getElementById('order-error').textContent = '';
+  const fd = new FormData(e.target);
+  const res = await fetch('/api/orders/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.fromEntries(fd)),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    document.getElementById('order-error').textContent = err.error || 'order failed';
+    return;
+  }
+  e.target.reset();
+  loadOrders();
+  loadProducts();
+});
+
+loadUsers();
+loadProducts();
+loadOrders();
+</script>
+</body>
+</html>
